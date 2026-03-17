@@ -4,20 +4,25 @@ import java.util.function.Consumer;
 
 public interface Assert {
 
-  record AssertionError(Exception thrown, Object expected, Object actual, String cause) {
-    public AssertionError(Object expected, Object actual, String message) {
-      this(Nothing.Instance, expected, actual, message);
+  record AssertionError(Object expected, Object actual, String cause) {
+    public boolean thrownUnexpectedException() {
+      return actual instanceof UnexpectedException;
     }
   }
 
   void fail(AssertionError error);
 
+  default void assertEquals(char expected, char actual) {
+    assertEquals("" + expected, "" + actual);
+  }
+
   default void assertEquals(String expected, String actual) {
     if (expected == null && actual == null) return;
     if (actual == null) {
-      fail(new AssertionError(expected, null, "NPEs are bad" ));
+      fail(new AssertionError(expected, null, "NPEs are bad"));
     } else {
-      if (!actual.equals(expected)) fail(new AssertionError(expected, actual, "apples and pears, anyone?"));
+      if (!actual.equals(expected))
+        fail(new AssertionError(expected, actual, "apples and pears, anyone?"));
     }
   }
 
@@ -35,18 +40,21 @@ public interface Assert {
 
   default <T> void assertInstanceOf(Class<T> expected, Object actual, Consumer<T> thenAssert) {
     if (!expected.isInstance(actual)) {
-      fail(new AssertionError(expected, actual, "was of type: "+actual.getClass()));
+      fail(new AssertionError(expected, actual, "was of type: " + actual.getClass()));
     } else {
       thenAssert.accept(expected.cast(actual));
     }
   }
 
-  class Nothing extends RuntimeException {
-    static final Nothing Instance = new Nothing();
+  final class UnexpectedException extends RuntimeException {
+    public UnexpectedException(Throwable cause) {
+      super(cause);
+    }
 
     @Override
     public String toString() {
-      return "nothing";
+      Throwable cause = getCause();
+      return cause == null ? "nothing" : cause.getClass().getSimpleName();
     }
   }
 }

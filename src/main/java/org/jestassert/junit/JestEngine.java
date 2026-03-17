@@ -15,7 +15,6 @@ public class JestEngine extends AbstractClassBasedTestEngine {
     if (candidate == Test.class) return false;
     if (candidate.getEnclosingClass() != null) return false;
     var result = Test.class.isAssignableFrom(candidate);
-    System.out.println(candidate + " is a Test? " + result);
     return result;
   }
 
@@ -26,9 +25,11 @@ public class JestEngine extends AbstractClassBasedTestEngine {
 
   @Override
   public void execute(EngineExecutionListener listener, TestClass testClass) {
-    // TODO listener.executionStarted(method);
     Test.run((Class<? extends Test>) testClass.getTestClass());
+    // onStart, onEnd(List<AssertionError>)
+    //Test.discover(class, test -> {
+
+    //});
     // TODO TestExecutionResult result = execute(testInstance, (TestMethod) method);
-    // TODO listener.executionFinished(method, result);
   }
 }

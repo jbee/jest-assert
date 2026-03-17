@@ -5,6 +5,7 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.util.ArrayList;
 import java.util.List;
 
 public interface Test extends Assert {
@@ -27,17 +28,33 @@ public interface Test extends Assert {
 
   <T> void run(ScenarioWith<T> scenario, List<T> parameters);
 
+  record Executable(Class<? extends Test> test, String scenario, Method method) {}
 
+  interface Observer {
+    void before(Executable e);
 
-
-
-
-
-
-
+    void after(List<AssertionError> errors);
+  }
 
   static void run(Class<? extends Test> test) {
-    Runner runner = new Runner();
+    run(
+        test,
+        new Observer() {
+          @Override
+          public void before(Executable e) {
+            System.out.println(e.scenario);
+          }
+
+          @Override
+          public void after(List<AssertionError> errors) {
+            for (AssertionError e : errors) System.out.println("\tfailed: " + e);
+          }
+        });
+  }
+
+  static void run(Class<? extends Test> test, Observer observer) {
+    Runner runner = new Runner(test);
+    runner.observer = observer;
     Test t =
         (Test)
             Proxy.newProxyInstance(
@@ -49,11 +66,8 @@ public interface Test extends Assert {
                     return getCoreApiMethodHandle(method).bindTo(runner).invokeWithArguments(args);
 
                   if (method.getName().startsWith("test")) {
-                    String testCase = runner.name == null ? method.getName() : runner.name;
-                    testCase += runner.parameter == null ? "()" : "(" + runner.parameter + ")";
-                    System.out.println(testCase);
+                    runner.beforeScenario(method, args);
                   }
-
                   if (args != null && args.length > 0)
                     return getDefaultMethodHandle(method).bindTo(proxy).invokeWithArguments(args);
                   return getDefaultMethodHandle(method).bindTo(proxy).invoke();
@@ -63,19 +77,31 @@ public interface Test extends Assert {
 
   class Runner implements Test {
 
+    final Class<? extends Test> test;
     String name;
     String parameter;
+    Observer observer;
+    List<AssertionError> errors = new ArrayList<>();
+
+    public Runner(Class<? extends Test> test) {
+      this.test = test;
+    }
+
+    public void beforeScenario(Method method, Object[] args) {
+      String scenario = name == null ? method.getName() : name;
+      scenario += parameter == null ? "()" : "(" + parameter + ")";
+      Executable e = new Executable(test, scenario, method);
+      if (observer != null) observer.before(e);
+    }
 
     @Override
     public void fail(AssertionError error) {
-      System.out.println("\tfailed: " + error);
-      // TODO flag to ignore asserts until next run
+      errors.add(error);
     }
 
     private void fail(Exception ex) {
-      fail(
-          new AssertionError(
-              ex, null, null, "Unexpected exception was thrown: " + ex.getMessage()));
+      String cause = "Oh boy, that escalated quickly: " + ex.getMessage();
+      fail(new AssertionError("?", new UnexpectedException(ex), cause));
     }
 
     @Override
@@ -90,6 +116,7 @@ public interface Test extends Assert {
       } catch (Exception e) {
         fail(e);
       }
+      afterScenario();
     }
 
     @Override
@@ -101,6 +128,12 @@ public interface Test extends Assert {
       } catch (Exception e) {
         fail(e);
       }
+      afterScenario();
+    }
+
+    private void afterScenario() {
+      if (observer != null) observer.after(List.copyOf(errors));
+      errors.clear();
     }
 
     @Override
@@ -113,6 +146,7 @@ public interface Test extends Assert {
         } catch (Exception ex) {
           fail(ex);
         }
+        afterScenario();
       }
     }
   }

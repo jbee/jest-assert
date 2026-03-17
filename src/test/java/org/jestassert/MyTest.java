@@ -16,6 +16,7 @@ public interface MyTest extends Test, MyAssert {
     run(this::testSomethingElseWith, List.of("foo", "bar", "hi", "my dude", "mister"));
     run(this::testMore);
     run(this::testNullStuff);
+    run(this::testExceptionStuff);
   }
 
   default void testSomething() {
@@ -42,5 +43,9 @@ public interface MyTest extends Test, MyAssert {
       assertInRange(1,4, actual.length());
     });
     assertEquals("foo", null);
+  }
+
+  default void testExceptionStuff() {
+    assertEquals('x', "foo".charAt(5));
   }
 }
