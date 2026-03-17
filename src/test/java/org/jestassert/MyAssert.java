@@ -1,5 +1,7 @@
 package org.jestassert;
 
+import org.jestassert.Assert;
+
 public interface MyAssert extends Assert {
 
   record Range(int min, int max) {}
